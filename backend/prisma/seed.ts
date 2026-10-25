@@ -6,8 +6,9 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // Create admin user
+  // Create or update admin user
   const adminPassword = await bcrypt.hash('admin123', 10);
+
   const admin = await prisma.user.upsert({
     where: { email: 'admin@quizcraft.ai' },
     update: {
@@ -22,13 +23,19 @@ async function main() {
       role: 'ADMIN',
     },
   });
-  console.log(`✅ Admin user created: ${admin.email}`);
 
-  // Create demo student user
+  console.log(`✅ Admin user ready: ${admin.email}`);
+
+  // Create or update demo student
   const studentPassword = await bcrypt.hash('student123', 10);
+
   const student = await prisma.user.upsert({
     where: { email: 'student@quizcraft.ai' },
-    update: {},
+    update: {
+      password: studentPassword,
+      role: 'STUDENT',
+      name: 'Demo Student',
+    },
     create: {
       email: 'student@quizcraft.ai',
       password: studentPassword,
@@ -36,18 +43,31 @@ async function main() {
       role: 'STUDENT',
     },
   });
-  console.log(`✅ Student user created: ${student.email}`);
 
-  // Create a demo subject for the student
-  const subject = await prisma.subject.create({
-    data: {
+  console.log(`✅ Student user ready: ${student.email}`);
+
+  // Create demo subject only if it does not exist
+  const existingSubject = await prisma.subject.findFirst({
+    where: {
       name: 'Computer Science',
-      description: 'Introduction to Computer Science',
-      color: '#4F46E5',
       userId: student.id,
     },
   });
-  console.log(`✅ Demo subject created: ${subject.name}`);
+
+  if (!existingSubject) {
+    await prisma.subject.create({
+      data: {
+        name: 'Computer Science',
+        description: 'Introduction to Computer Science',
+        color: '#4F46E5',
+        userId: student.id,
+      },
+    });
+
+    console.log('✅ Demo subject created');
+  } else {
+    console.log('ℹ️ Demo subject already exists');
+  }
 
   console.log('🌱 Seeding completed!');
 }
